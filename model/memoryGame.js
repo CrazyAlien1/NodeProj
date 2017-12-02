@@ -9,6 +9,7 @@ class MemoryGame
 		this.board = [];
 		this.finalBoard = [];
 		this.owner = player;
+		this.isFull = false;
 
 		this.players = new Map();
 		this.players.set(this.owner.socketID, this.owner);
@@ -19,21 +20,32 @@ class MemoryGame
 		if(player !== undefined || player !== null)
 		{
 			this.players.set(player.socketID, player);
-		}else
-		{
-			return false;
+			if(this.players.size == this.maxPlayers)
+			{
+				this.isFull = true;
+			}
+			return true;
 		}
+		return false;
 	}
 
-	leave(playerID)
+	removePlayer(playerID)
 	{
-		return this.players.delete(playerID);
+		let outcome = this.players.delete(playerID);
+		//Se removeu o player e se o estado do jogo ainda estiver por começar e se o numero de jogadores
+		//for abaixo do maximo muda o estado do jogo para available
+		if(outcome && this.status == 'pending' && this.players.size < this.maxPlayers)
+		{
+			this.isFull = false;
+		}
 	}
 
 	start()
 	{
 		this.status = 'Ativo';
+		//calcular tamanho do jogo
 	}
+
 }
 
 module.exports = MemoryGame;

@@ -24,16 +24,31 @@ class GameList
 		return this.games.filter(game => game.status == 'Ativo');
 	}
 
-	createGame(name, numPieces, player, maxPlayers)
+	createGame(name, playerID, numPieces, maxPlayers)
 	{
+		let player = this.playerByID(playerID);
 		if(player === undefined || player == null)
 		{
 			return false;
 		}
 
+		//TODO: adicionar logica de row * col = numberOfPieces
+
 		let game = new MemoryGame(this.gamesCounterID, name, numPieces, player, maxPlayers);
 		this.gamesCounterID++;
 		this.games.set(ID, game);
+	}
+
+	joinGame(gameID, playerID)
+	{
+		let player = this.playerID(playerID);
+		let game = this.gameByID(gameID);
+		if(player !== undefined && game !== undefined && !game.isFull)
+		{
+			game.join(socket.id);
+			return game;
+		}
+		return undefined;
 	}
 
 	//USERS

@@ -19,7 +19,6 @@ var app = require('http').createServer();
 
 var io = require('socket.io')(app);
 
-var Player = require('./model/player.js');
 var GameList = require('./model/gameList.js');
 
 app.listen(8080, function(){
@@ -29,13 +28,12 @@ app.listen(8080, function(){
 // ------------------------
 // Estrutura dados - server
 // ------------------------
-let restRequiredFields = {"create_game" : ["gameName", "maxPlayers"],
-                          "request_join_game" : ["gameID"],
-                          "play_piece" : ["gameID", "pieceIndex"],
-                          "create_chat" : ["chatName"],
-                          "invite_to_chat" : ["chatRoomID", "invitedPlayer"],
-                          "send_message" : ["chatRoomID", "message"]
-
+let restRequiredFields = {create_game : ["gameName", "quantPieces", "maxPlayers"],
+                          request_join_game : ["gameID"],
+                          play_piece : ["gameID", "pieceIndex"],
+                          create_chat : ["chatName"],
+                          invite_to_chat : ["chatRoomID", "invitedPlayer"],
+                          send_message : ["chatRoomID", "message"],
                         };
 
 let games = new GameList();
@@ -56,21 +54,38 @@ io.on('connection', function (socket) {
 
     socket.on('create_game', function (data)
     {	//data {gameName: 'war on pigs', quantPiece: 4, maxPlayers: 3}
-    	//create a new game
+    	//create a new game and a room for it!
         //Emit to everyone new game is available
         if(!validateRest(data, restRequiredFields.create_game))
         {
             return;
         }
 
-        games.createGame(data.gameName, data.maxPlayers);
+        let outcome = games.createGame(data.gameName, socket.id, data.quantPieces, data.maxPlayers);
+
+        if(!outcome)
+        {
+            //TODO: devolver razao
+            socket.emit('create_game_error', 'Unable to create game');
+            return;
+        }
+
+        socket.join(game.gameID);
         io.emit('lobby_changed', games.getPendingGames());
         
+    });
+
+    socket.on('resize_game_board', function(data)
+    {   //data {gameID : 12, row : 12, col : 4}
+        //get the game that is still pending!
+        //generate a new board
+        //emit to all inside the game that it has changed
     });
 
     socket.on('get_lobby', function()
     {
         //Get all games available to play
+        io.emit('lobby_changed', games.getPendingGames());
     });
 
 	socket.on('request_join_game', function(gameID)
@@ -82,6 +97,17 @@ io.on('connection', function (socket) {
         {
             return;   
         }
+
+        let gameJoined = games.joinGame(gameID, socket.id);
+        if(gameJoined !== undefined)
+        {
+            socket.join(gameId);
+            io.to(gameId).emit('refresh_game', gameJoined);
+        }else
+        {
+            socket.emit('request_join_error', 'Game you\'re trying to join is no longer available');
+        }
+
     });
 
     socket.on('play_piece', function(data)
@@ -134,11 +160,13 @@ io.on('connection', function (socket) {
 //Checks whether the rest call has all members necessary to keep processing the request
 function validateRest(dataToValidate, requiredData)
 {
+    let isSafe = true;
     requiredData.forEach((ele)=>{
         if(dataToValidate.hasOwnProperty(ele) === false)
         {
             console.log("[REST]:\t! Expecting: "+ ele+ " => "+ data.ele);
-            return false;
+            isSafe = false;
         }
     });
+    return isSafe;
 }

@@ -6,14 +6,6 @@ class Player
 		this.name = name;
 	}
 
-	joinGame(game)
-	{
-		this.games.set(game.gameID, game);
-	}
-
-	getGames()
-	{
-		return this.games;
-	}
-
 }
+
+module.exports = Player;

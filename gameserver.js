@@ -20,15 +20,20 @@ var app = require('http').createServer();
 var io = require('socket.io')(app);
 
 var GameList = require('./model/gameList.js');
+var PlayerList = require('./model/playerList.js');
+var Player = require('./model/player.js');
 
 app.listen(8080, function(){
     console.log('listening on *:8080');
 });
 
+const MAXPLAYERS = 4;
+const MINPLAYERS = 2;
+
 // ------------------------
 // Estrutura dados - server
 // ------------------------
-let restRequiredFields = {create_game : ["gameName", "quantPieces", "maxPlayers"],
+let restRequiredFields = {create_game : ["gameID", "gameName", "rows", "cols"],
                           request_join_game : ["gameID"],
                           play_piece : ["gameID", "pieceIndex"],
                           create_chat : ["chatName"],
@@ -37,23 +42,39 @@ let restRequiredFields = {create_game : ["gameName", "quantPieces", "maxPlayers"
                         };
 
 let games = new GameList();
+let users = new PlayerList();
 
 io.on('connection', function (socket) {
 
+    //Sempre que alguem se connectar pede-lhe para se autenticar
+    socket.emit('request_authenticate');
+
+    socket.on('authenticate_server', function(data)
+    {   //data: {userName: name}
+        var newPlayer = new Player(socket.id, data.userName);
+        users.addPlayer(socket.id, newPlayer);
+
+        socket.emit('success_join_server', 'Welcome to the Server BOIII');
+
+    });
+
 	socket.on('disconnect', function()
 	{
-      console.log('Got disconnected client!');
-      //Warn every game this player was in
-      let lostPlayer = games.playerByID(socket.id);
-      let games = lostPlayer.games();
-      games.forEach(function(game){
-        game.removePlayer(lostPlayer);
-        io.to(game.ID).emit('disconnected_player', lostPlayer.name);
-      });
+        //Warn every game this player was in
+        let playerGames = games.playerByID(socket.id);
+        if(playerGames !== undefined){
+
+            playerGames.forEach(function(game){
+                game.removePlayer(lostPlayer);
+                io.to(game.ID).emit('disconnected_player', lostPlayer.name);
+            });
+
+        }
+      
     });
 
     socket.on('create_game', function (data)
-    {	//data {gameName: 'war on pigs', quantPiece: 4, maxPlayers: 3}
+    {	//data {gameID: 2, gameName: 'war on pigs', rows: 2, cols: 2}
     	//create a new game and a room for it!
         //Emit to everyone new game is available
         if(!validateRest(data, restRequiredFields.create_game))
@@ -61,18 +82,28 @@ io.on('connection', function (socket) {
             return;
         }
 
-        let outcome = games.createGame(data.gameName, socket.id, data.quantPieces, data.maxPlayers);
-
-        if(!outcome)
+        let player = users.getUserByID(socket.id);
+        if(player === undefined || player == null)
         {
-            //TODO: devolver razao
-            socket.emit('create_game_error', 'Unable to create game');
+            requestUserToJoin(socket);
+            return false;
+        }
+
+        let game = games.createGame(data.gameID, data.gameName, player, data.rows, data.cols);
+
+        if(game === undefined)
+        {
+            socket.emit('create_game_error', games.errors.getErrors());
             return;
         }
 
         socket.join(game.gameID);
-        io.emit('lobby_changed', games.getPendingGames());
-        
+        io.emit('lobby_changed');
+    });
+
+    socket.on('delete_game', function(gameID){
+        games.deleteGame(gameID);
+        io.emit('lobby_changed');
     });
 
     socket.on('resize_game_board', function(data)
@@ -85,7 +116,7 @@ io.on('connection', function (socket) {
     socket.on('get_lobby', function()
     {
         //Get all games available to play
-        io.emit('lobby_changed', games.getPendingGames());
+        socket.emit('lobby_updated', games.getPendingGames());
     });
 
 	socket.on('request_join_game', function(gameID)
@@ -93,7 +124,7 @@ io.on('connection', function (socket) {
     	//find the game check whether it's still available maxPlayers or it has started...
     	//join the chatRoom of that game
     	//emit a refresh_game fo the game he just joined
-        if(!validateRest(data, restRequiredFields.request_join_game))
+        if(!validateRest(gameID, restRequiredFields.request_join_game))
         {
             return;   
         }
@@ -157,6 +188,10 @@ io.on('connection', function (socket) {
     });
 });
 
+function requestUserToJoin(socket){
+    socket.emit('request_authenticate');
+}
+
 //Checks whether the rest call has all members necessary to keep processing the request
 function validateRest(dataToValidate, requiredData)
 {
@@ -164,7 +199,7 @@ function validateRest(dataToValidate, requiredData)
     requiredData.forEach((ele)=>{
         if(dataToValidate.hasOwnProperty(ele) === false)
         {
-            console.log("[REST]:\t! Expecting: "+ ele+ " => "+ data.ele);
+            console.log("[REST]:\t! Expecting: "+ ele+ " => "+ dataToValidate.ele);
             isSafe = false;
         }
     });

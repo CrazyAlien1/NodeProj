@@ -42,7 +42,7 @@ class GameList
 		if(boardSize > 0)
 		{
 
-			let game = new MemoryGame(ID, name, boardSize, player);
+			let game = new MemoryGame(ID, name, rows, cols, player);
 			this.games.set(ID, game);
 			this.errors.clearErrors();
 			return game;

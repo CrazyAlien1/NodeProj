@@ -1,6 +1,6 @@
 class MemoryGame
 {
-	constructor(ID, name, numPieces, player)
+	constructor(ID, name, cols, rows, player)
 	{
 		this.ID = ID;
 		this.name = name;
@@ -9,7 +9,9 @@ class MemoryGame
 		this.finalBoard = [];
 		this.owner = player.name;
 		this.isFull = false;
-		this.numPieces = numPieces;
+		this.cols = cols;
+		this.gameEnded = false;
+		this.rows = rows;
 		this.players = new Map();
 		this.players.set(this.owner.socketID, this.owner);
 	}

@@ -33,7 +33,9 @@ const MINPLAYERS = 2;
 // ------------------------
 // Estrutura dados - server
 // ------------------------
-let restRequiredFields = {create_game : ["gameID", "gameName", "rows", "cols"],
+let restRequiredFields = {
+                          authenticate_server: ["userName"],
+                          create_game : ["gameID", "gameName", "rows", "cols"],
                           request_join_game : ["gameID"],
                           play_piece : ["gameID", "pieceIndex"],
                           create_chat : ["chatName"],
@@ -51,9 +53,13 @@ io.on('connection', function (socket) {
 
     socket.on('authenticate_server', function(data)
     {   //data: {userName: name}
+        if(!validateRest(data, restRequiredFields.authenticate_server))
+        {
+            return;
+        }
+
         var newPlayer = new Player(socket.id, data.userName);
         users.addPlayer(socket.id, newPlayer);
-
         socket.emit('success_join_server', 'Welcome to the Server BOIII');
 
     });

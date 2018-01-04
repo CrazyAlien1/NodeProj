@@ -18,6 +18,15 @@ class PlayerList
 		return this.playerList.get(ID);
 	}
 
+	getUserBySocket(socket){
+		for (var [key, player] of this.playerList){
+			console.log(player.socketID + " == "+ socket);
+			if(player.socketID === socket){
+				return player;
+			}
+		}
+	}
+
 }
 
 module.exports = PlayerList;

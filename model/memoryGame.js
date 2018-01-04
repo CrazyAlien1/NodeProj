@@ -1,26 +1,20 @@
 class MemoryGame
 {
-	constructor(ID, name, cols, rows, player)
+	constructor(laravelGame, owner)
 	{
-		this.ID = ID;
-		this.name = name;
-		this.status = 'Pendente';
-		this.board = [];
+		Object.assign(this, laravelGame);
+		//this = laravelGame;
+		this.board = []; //generate now the board with laravelGame.rows and laravelGame.cols
 		this.finalBoard = [];
-		this.owner = player.name;
-		this.isFull = false;
-		this.cols = cols;
-		this.gameEnded = false;
-		this.rows = rows;
 		this.players = new Map();
-		this.players.set(this.owner.socketID, this.owner);
+		this.players.set(owner.ID, owner);
 	}
 
 	join(player)
 	{
 		if(player !== undefined || player !== null)
 		{
-			this.players.set(player.socketID, player);
+			this.players.set(player.ID, player);
 			if(this.players.size == MAXPLAYERS)
 			{
 				this.isFull = true;

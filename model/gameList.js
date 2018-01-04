@@ -1,12 +1,11 @@
 var MemoryGame = require('./memoryGame.js');
 var ErrorHandler = require('./errorHandler.js');
 
-const MAXPIECES = 100;
-const MINPIECES = 4;
 class GameList
 {
 	constructor()
 	{
+		//Se houver uma lista do laravel com jogos entao converter para Map
 		this.gamesCounterID = 0;
 		this.games = new Map();
 		this.errors = new ErrorHandler();
@@ -23,7 +22,7 @@ class GameList
 		let games = [];
 		for (var [key, game] of this.games) 
 		{
-			if(game.status == 'Pendente'){
+			if(game.status == 'pending'){
 				games.push(game);
 			}
 		}
@@ -32,46 +31,53 @@ class GameList
 
 	getRunningGames()
 	{
-		return this.games.filter(game => game.status == 'Ativo');
+		return this.games.filter(game => game.status == 'active');
 	}
 
-	createGame(ID, name, player, rows, cols)
+	createGame(game, owner)
 	{
+		let newGame = new MemoryGame(game, owner);
+		this.games.set(game.id, newGame);
+		return game;
+	}
 
-		let boardSize = validateBoardSize(rows, cols);
-		if(boardSize > 0)
-		{
-
-			let game = new MemoryGame(ID, name, rows, cols, player);
-			this.games.set(ID, game);
-			this.errors.clearErrors();
-			return game;
-
-		}else{
-			this.errors.addError('Game board size not available pls insert an even result');
-			return undefined;
-		}
+	addGame(ID, game){
+		this.games.set(ID, game);
 	}
 
 	joinGame(gameID, playerID)
 	{
-		let player = this.playerID(playerID);
+		let player = this.games.get(gameID).hasPlayer(playerID);
 		let game = this.gameByID(gameID);
 		if(player !== undefined && game !== undefined && !game.isFull)
 		{
-			game.join(socket.id);
+			game.join(player);
 			return game;
 		}
 		return undefined;
 	}
 
 	//USERS
-	playerByID(socketID)
+	playerByID(ID)
 	{
 		let user;
-		for (var [key, game] of this.games) 
+		for (var [key, game] of this.games)
 		{
-		  user = game.hasPlayer(socketID);
+		  user = game.hasPlayer(ID);
+		  if(user !== undefined)
+		  {
+		  	return user;
+		  }
+		}
+		return undefined;
+	}
+
+	playerByID(socket)
+	{
+		let user;
+		for (var [key, game] of this.games)
+		{
+		  user = game.hasPlayer(socket);
 		  if(user !== undefined)
 		  {
 		  	return user;
@@ -110,19 +116,6 @@ class GameList
 		let game = this.games.delete(gameID);
 	}
 
-}
-
-function validateBoardSize(rows, cols){
-	let piecesQuant = -1;
-		let quant = rows * cols;
-		if(quant >= MINPIECES && quant <= MAXPIECES){
-			if(quant % 2 == 0){
-				piecesQuant = quant;
-			}
-		}
-	
-	return piecesQuant;
-	
 }
 
 module.exports = GameList;

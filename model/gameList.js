@@ -19,10 +19,11 @@ class GameList
 
 	getPendingGames()
 	{
+		//Se for admin mostra tb os singleplayer??
 		let games = [];
 		for (var [key, game] of this.games) 
 		{
-			if(game.status == 'pending'){
+			if(game.status === 'pending'){
 				games.push(game);
 			}
 		}
@@ -34,23 +35,30 @@ class GameList
 		return this.games.filter(game => game.status == 'active');
 	}
 
-	createGame(game, owner)
+	createGame(game, owner, time)
 	{
-		let newGame = new MemoryGame(game, owner);
+		let newGame = new MemoryGame(game, owner, time);
 		this.games.set(game.id, newGame);
-		return game;
+		return newGame;
 	}
 
+//To be used when synching with laravel is done or not...
 	addGame(ID, game){
 		this.games.set(ID, game);
 	}
 
-	joinGame(gameID, playerID)
+	joinGame(gameID, player)
 	{
-		let player = this.games.get(gameID).hasPlayer(playerID);
+		//No final do jogo é que se guarda tudo inclusive quem jogou
+		console.log("[JOIN GAME]");
+		let hasPlayer = this.games.get(gameID).getPlayer(player.ID);
 		let game = this.gameByID(gameID);
-		if(player !== undefined && game !== undefined && !game.isFull)
-		{
+
+		if(hasPlayer !== undefined && hasPlayer !== null) {
+			//O jogador ja esta nesse jogo...
+			console.log("User ja se encontra nesse jogo");
+			return undefined;
+		}else if(game !== undefined && !game.isFull){
 			game.join(player);
 			return game;
 		}
@@ -58,32 +66,20 @@ class GameList
 	}
 
 	//USERS
-	playerByID(ID)
+	playerGames(ID)
 	{
-		let user;
+		let gamesUserHas = [];
 		for (var [key, game] of this.games)
 		{
-		  user = game.hasPlayer(ID);
-		  if(user !== undefined)
+		  if(game.getPlayer(ID) !== undefined)
 		  {
-		  	return user;
+		  	gamesUserHas.push(game);
 		  }
 		}
-		return undefined;
-	}
-
-	playerByID(socket)
-	{
-		let user;
-		for (var [key, game] of this.games)
-		{
-		  user = game.hasPlayer(socket);
-		  if(user !== undefined)
-		  {
-		  	return user;
-		  }
+		if(gamesUserHas.length == 0){
+			return undefined;
 		}
-		return undefined;
+		return gamesUserHas;
 	}
 
 	userByName(name)
@@ -102,6 +98,7 @@ class GameList
 
 	removePlayer(gameID, socketID)
 	{
+		//When the player leaves he loses his turn
 		let game = this.games.get(gameID);
 		if(game !== undefined)
 		{

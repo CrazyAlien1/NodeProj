@@ -35,6 +35,8 @@ class LaravelApiEndPoint
                 'userID' : gameRequest.player.ID,
                 'type' : gameRequest.game.gameType,
                 'name' : gameRequest.game.gameName,
+                'rows' : gameRequest.game.rows,
+                'cols' : gameRequest.game.cols,
         }).then(resp => {
         	success(resp);
         }).catch(resp => {

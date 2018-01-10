@@ -11,17 +11,16 @@ class PlayerList
 	}
 
 	removePlayer(ID){
-		this.playerList.delete(ID);
+		this.playerList.delete(ID+''); //ele faz a comparacao === e o ID é string
 	}
 
 	getUserByID(ID){
-		return this.playerList.get(ID);
+		return this.playerList.get(ID+'');
 	}
 
 	getUserBySocket(socket){
 		for (var [key, player] of this.playerList){
-			console.log(player.socketID + " == "+ socket);
-			if(player.socketID === socket){
+			if(player.socketID == socket){
 				return player;
 			}
 		}

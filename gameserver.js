@@ -231,7 +231,8 @@ io.on('connection', function (socket) {
 
                             closeGame(gameTimedOut);
                         }else{
-                            io.to(gameTimedOut.id).emit('game_refresh', gameTimedOut.playerWorthy());
+                            io.to(game.id).emit('game_switch_turn', game.playerWorthy());
+                            //io.to(gameTimedOut.id).emit('game_refresh', gameTimedOut.playerWorthy());
                         }
                     }
                 });
@@ -253,14 +254,30 @@ io.on('connection', function (socket) {
             console.log("Playing piece");
             game.play(player.ID, data.pieceIndex, 
                 (success) => {
+                    
                     console.log("Success Play");
                     if(game.gameEnded){
 
                         closeGame(game);
 
+                        laravelApi.postSaveGame(game,
+                            (success) => {
+
+                            },
+                            (error) => {
+                                socket.emit('create_game_error', error);
+                            });
+
                     }else{
 
                         io.to(game.id).emit('game_refresh', game.playerWorthy());
+                        if(game.newTurn){
+                            setTimeoutPromise(1000).then(
+                            () => {
+                                io.to(game.id).emit('game_refresh', game.playerWorthy()); 
+                            }
+                            );
+                        }
                     }
                 },
                 (fail) => {
@@ -289,24 +306,24 @@ io.on('connection', function (socket) {
         }
     });
 
-    socket.on('game_refresh', function(data)
-    {
-        if(!validateRest(data, restRequiredFields.remove_player_game))
-        {
-            return;
-        }
+    // socket.on('game_refresh', function(data)
+    // {
+    //     if(!validateRest(data, restRequiredFields.remove_player_game))
+    //     {
+    //         return;
+    //     }
 
-        let user = socketToUser(socket);
-        let game = gamesList.gameByID(data.gameId);
+    //     let user = socketToUser(socket);
+    //     let game = gamesList.gameByID(data.gameId);
 
-        if(user !== undefined && game !== undefined){
-            if(game.getPlayer(user.ID)){
-                console.log("USER Requesting his game to be updated");
-                socket.emit('game_refresh', game);
-            }
-        }
+    //     if(user !== undefined && game !== undefined){
+    //         if(game.getPlayer(user.ID)){
+    //             console.log("USER Requesting his game to be updated");
+    //             socket.emit('game_refresh', game);
+    //         }
+    //     }
 
-    });
+    // });
 
     socket.on('remove_player_game', function(data)
     {//data {gameId : 1, userID : 4}
@@ -328,6 +345,9 @@ io.on('connection', function (socket) {
 
                     //it's the owner requesting to remove a legit player in his game
                     game.removePlayer(playerToKick.ID);
+
+                    io.sockets.connected[playerToKick.socketID].leave(game.id);
+                    // io.to(playerToKick.socketID).leave(game.id);
                     
                     // Esta a limpar o lobby do owner ou seja a remover o jogo que ele kickou o player
                     io.to(playerToKick.socketID).emit('game_kick', 'You were kicked from '+ game.name+ ' by the owner');
@@ -352,6 +372,9 @@ io.on('connection', function (socket) {
         let game = gamesList.gameByID(data.gameId);
 
         if(game.getPlayer(player.ID) !== undefined){
+
+            io.sockets.connected[player.socketID].leave(game.id);
+            // io.to(player.socketID).leave(game.id);
             game.removePlayer(player.ID);
         }
 

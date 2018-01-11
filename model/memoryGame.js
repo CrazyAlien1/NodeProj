@@ -21,6 +21,8 @@ class MemoryGame
 		this.timer = timer;
 		this.gameEnded = false;
 		this.callbackTimeOut;
+		this.currentWinner = undefined;
+		this.winner = undefined;
 	}
 
 	join(player)
@@ -53,11 +55,15 @@ class MemoryGame
 
 		    	let lostPlayer = this.players[i];
 
-		    	this.players.splice(i, 1);
+		    	if(this.currentWinner !== undefined && this.currentWinner.ID == lostPlayer.ID){
+		    		this.currentWinner = undefined;
+		    		this.currentMaxPoints = 0;
+		    	}
 
 		    	if(this.type === 'multiplayer' && this.playerTurn === id && this.status == 'active'){
 		    		let nextPlayer = this.nextPlayerToPlay();
 
+					this.players.splice(i, 1);
 		    		this.resetTurn();
 
 		    		if(this.checkVictory()){
@@ -71,6 +77,8 @@ class MemoryGame
 			    		}
 		    			this.addMessage("Disconnected Player "+ lostPlayer.name + " gave his turn to "+ nextPlayer.name);
 		    		}
+		    	}else{
+		    		this.players.splice(i, 1);
 		    	}
 
 		        
@@ -96,17 +104,19 @@ class MemoryGame
 		//Cuidado na ordem de chamada das funcoes
 		this.clearMessages();
 		this.newTurn = true;
-		for(var i = 0; i < this.players.length; i++) {
-		    if (this.players[i].ID === this.playerTurn) {
+
+		console.log("TOTAL PLAYERs: "+ this.players.length);
+		for(let i = 0; i < this.players.length; i++) {
+			console.log("NEXTPLAYER()---->", this.players[i].ID, " == ", this.playerTurn);
+		    if (this.players[i].ID == this.playerTurn) {
 
 		    	this.startTimer();
 
-		        if(i == this.players.length -1){
-		        	return this.players[0];
-		        }else{
-		        	//Buscar o proximo player
-		        	return this.players[i+1];
-		        }
+		    	let nextIndex =  (i+1) % this.players.length;
+
+		    	console.log("NEXT PLAYER::::"," I: ", i,"   index: ", nextIndex, " Player: ", this.players[nextIndex]);
+
+		    	return this.players[nextIndex];
 		    }
 		}
 
@@ -114,9 +124,12 @@ class MemoryGame
 
 	start(callbackTime){
 		this.status = 'active';
-		this.winner = undefined;
 		this.newTurn = true;
 		this.callbackTimeOut = callbackTime;
+		this.allPlayers = [];
+		for(let i = 0; i < this.players.length; i++){
+			this.allPlayers.push(this.players[i].ID);
+		}
 		//generate the board!
 		let size = this.cols * this.rows;
 		for (var i = 0; i < size; i++) {
@@ -128,9 +141,8 @@ class MemoryGame
 			this.type = 'singleplayer';
 		}
 
-		if(this.type == 'multiplayer'){
-			this.startTimer();
-		}
+		this.startTimer();
+		
 
 		this.finalBoard = generateBoard(size);
 	}
@@ -163,14 +175,20 @@ class MemoryGame
 				if(this.piece1.value === this.piece2.value){
 					//player hit pieces with same image
 
-					this.piece1 = undefined;
-					this.piece2 = undefined;
+					
 					currPlayer.Points += 10;
+
+					this.updateCurrentWinner(currPlayer);
 					
 					if(!this.checkVictory()){
 						this.startTimer();
 					}
+					this.newTurn = true;
 					success();
+					this.board[this.piece1.index] = -2;
+					this.board[this.piece2.index] = -2;
+					this.piece1 = undefined;
+					this.piece2 = undefined;
 				}else{
 
 					this.playerTurn = this.nextPlayerToPlay().ID;
@@ -180,9 +198,7 @@ class MemoryGame
 
 					this.resetTurn();
 				}
-				
 			}
-			
 		}else{
 			if(playerID !== this.playerTurn){
 				error('Not your turn');
@@ -191,11 +207,13 @@ class MemoryGame
 	}
 
 	startTimer(){
-		this.stopTimer();
-		this.timeToPlay = setTimeout( () => {
+		if(this.type == 'multiplayer'){
+			this.stopTimer();
+			this.timeToPlay = setTimeout( () => {
 
-                this.callbackTimeOut(this);
-			}, this.timer);
+	                this.callbackTimeOut(this);
+				}, this.timer);
+		}
 	}
 
 	stopTimer(){
@@ -214,12 +232,11 @@ class MemoryGame
 
 	checkVictory(){
 
-		console.log(this.type, this.players.length);
-
 		if(this.type === 'multiplayer' && this.players.length == 1){
 
 			this.winner = this.players[0];
 			this.gameEnded = true;
+			this.status = 'terminated';
 
 			this.stopTimer();
 			return true;
@@ -227,13 +244,12 @@ class MemoryGame
 
 		//The gameBoard is not yet completely revealed
 		for (var i = 0; i < this.board.length; i++) {
-			if(this.board[i] !== this.finalBoard[i]){
+			if(this.board[i] == -1){
 				return false;
 			}
 		}
-		
-		
-		//Calculate the winner
+
+		this.updateCurrentWinner();
 
 		this.gameEnded = true;
 		
@@ -241,18 +257,25 @@ class MemoryGame
 			this.stopTimer();
 		}
 
-		let maxPoints = 0;
-		let winner = undefined;
-		for (var i = 0; i < this.players.length; i++) {
-			if(this.players[i].Points > maxPoints){
-				maxPoints = this.players[i].Points;
-				winner = this.players[i];
-			}
-			//E se for empate?
-		}
-
-		this.winner = winner;
+		this.winner = this.currentWinner;
 		return true;
+	}
+
+	updateCurrentWinner(player){
+		if(this.currentMaxPoints == undefined && player !== undefined){
+			this.currentMaxPoints = player.Points;
+			this.currentWinner = player; 
+		}else{
+
+			for (let i = 0; i < this.players.length; i++) {
+				console.log("FOR::", this.players[i], "      ----maxPoints: "+ this.currentMaxPoints);
+				if(this.players[i].Points > this.currentMaxPoints){
+					console.log("UPDATING WINNER:::", this.players[i]);
+					this.currentMaxPoints = this.players[i].Points;
+					this.currentWinner = this.players[i];
+				}
+			}
+		}		
 	}
 
 	addMessage(msg){

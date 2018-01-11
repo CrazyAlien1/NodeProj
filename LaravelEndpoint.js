@@ -45,8 +45,22 @@ class LaravelApiEndPoint
         });
 	}
 
-	postJoinGame(user, gameToJoin){
-		//post to laravel that some user wants to join the game
+	postSaveGame(game, success, error){
+		console.log("POSTING:::", game.allPlayers);
+		this.axios.put(URI_GAMES, {
+                //falta o auth token!
+                'id' : game.id,
+                'status' : game.status,
+                'type' : game.type,
+                'winner' : game.winner.ID,
+                'players' : game.allPlayers,
+        }).then(resp => {
+        	console.log(resp);
+        	success(resp);
+        }).catch(resp => {
+        	console.log(resp);
+			error(resp);
+        });
 	}
 
 //****************************  USERS  *******************************************

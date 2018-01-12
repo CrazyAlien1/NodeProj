@@ -39,7 +39,7 @@ class MemoryGame
 			console.log("USER JOINED: ", userInGame);
 			this.players.push(userInGame);
 
-			if(this.players.length == MAXPLAYERS)
+			if(this.players.length == this.maxPlayers)
 			{
 				this.isFull = true;
 			}

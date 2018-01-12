@@ -54,7 +54,7 @@ class GameList
 		let hasPlayer = this.games.get(gameID).getPlayer(player.ID);
 		let game = this.gameByID(gameID);
 
-		if(hasPlayer !== undefined && hasPlayer !== null) {
+		if(hasPlayer !== undefined) {
 			//O jogador ja esta nesse jogo...
 			console.log("User ja se encontra nesse jogo");
 			return undefined;

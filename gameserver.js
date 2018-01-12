@@ -49,7 +49,8 @@ let restRequiredFields = {
                           game_refresh : ["gameId"],
                           create_chat : ["chatName"],
                           invite_to_chat : ["chatRoomID", "invitedPlayer"],
-                          send_message : ["chatRoomID", "message"],
+                          send_message : ["gameId", "message"],
+                          delete_game : ["gameId"],
                         };
 
 let gamesList = new GameList();
@@ -73,11 +74,11 @@ io.on('connection', function (socket) {
 
         if(users.getUserByID(data.userID) !== undefined){
             console.log("JA CONNECTADO!!!!!");
+            console.log("ID: ", data.userID);
+            console.log(users);
+            console.log("JA CONNECTADO!!!!!");
             return;
         }
-        console.log("ID REQUESTED: ", data.userID);
-        console.log("USER IS LOGGED: ", users.getUserByID(data.userID));
-        console.log("USERS:", users);
 
         laravelApi.login(data.userID,
             (success) => {
@@ -100,7 +101,7 @@ io.on('connection', function (socket) {
     socket.on('disconnect', function()
     {
         //Warn every game this player was in
-        let player = users.getUserBySocket(socket.id);
+        let player = socketToUser(socket);
         if(player === undefined){
             return;
         }
@@ -111,6 +112,9 @@ io.on('connection', function (socket) {
             games.forEach( (game) => {
                 game.removePlayer(player.ID);
                 io.to(game.id).emit('player_disconnected', {'player': player.name, 'game': game});
+                if(game.players.length == 0 || (game.owner.id == player.ID && game.status == 'pending')){
+                    gamesList.deleteGame(game.id);
+                }
             });
 
         }
@@ -140,13 +144,13 @@ io.on('connection', function (socket) {
                 (resp) => {
                     console.log("Laravel accepted the game");
                     let game = resp.data.data;
+                    game.maxPlayers = data.gameMaxPlayers;
                     //Laravel recebeu com sucesso o meu pedido de novo jogo
                     //Criar o jogo aqui no servidor Node
 
                     let owner = users.getUserByID(game.created_by.id);
-                    game = gamesList.createGame(game, owner, 5000);
+                    game = gamesList.createGame(game, owner, 30000);
                     
-                    console.log("GAME TYPE:", game.type);
                     socket.join(game.id);
 
 
@@ -156,8 +160,6 @@ io.on('connection', function (socket) {
                     }else{
                         io.emit('lobby_changed');
                     }
-
-                console.log("Entrar room 1 - ", game.id);
 
                 }, (error) => {
                     socket.emit('create_game_error', error)
@@ -199,7 +201,6 @@ io.on('connection', function (socket) {
         let gameJoined = gamesList.joinGame(data.gameId, player);
         if(gameJoined !== undefined)
         {
-        console.log("Entrar room 2 - ", gameJoined.id);
             socket.join(gameJoined.id);
 
             io.emit('lobby_changed');
@@ -237,6 +238,12 @@ io.on('connection', function (socket) {
                     }
                 });
         emitGameStarted(game);
+
+        io.to(game.id).emit('got_message', {'game' : game.id, 
+                                                    'msg' : {
+                                                            'text' : 'Game on!',
+                                                           }
+                                                    });
     });
 
     socket.on('play_piece', function(data)
@@ -367,7 +374,7 @@ io.on('connection', function (socket) {
 
         console.log('leave_game');
 
-        let player = users.socketToUser(socket);
+        let player = socketToUser(socket);
 
         let game = gamesList.gameByID(data.gameId);
 
@@ -388,14 +395,40 @@ io.on('connection', function (socket) {
             return;
         }
 
-        let player = users.socketToUser(socket);
+        let player = socketToUser(socket);
 
         let game = gamesList.gameByID(data.gameId);
 
         if(game.owner.ID === player.ID){
-            gamesList.delete(game.id);
+            gamesList.deleteGame(game.id);
         }
 
+        io.emit('lobby_changed');
+
+    });
+
+    socket.on('send_message', function(data)
+    { //data {gameId : 123, message: 'Hello World'}
+      //emit to that chatRoom the message but not this guy
+        if(!validateRest(data, restRequiredFields.send_message))
+        {
+            return;
+        }
+
+        let user = socketToUser(socket);
+
+        let game = gamesList.gameByID(data.gameId);
+
+        if(user !== undefined && game !== undefined){
+
+            io.to(game.id).emit('got_message', {    'game' : game.id, 
+                                                    'msg' : {
+                                                            'text' : data.message, 
+                                                            'date' : new Date(),
+                                                            'sender' : user.name,
+                                                           }
+                                                    });
+        }
     });
 });
 
@@ -416,6 +449,7 @@ io.on('connection', function (socket) {
 // }
 
 function closeGame(game){
+    game.status = 'terminated';
     io.to(game.id).emit('game_ended', game.playerWorthy());
 
     //for(let i = 0; i < game.players.length; i++){
@@ -437,7 +471,6 @@ function socketToUser(socket){
 
 function emitGameStarted(game){
     //Emite que mmudou um jogo e lanca outravez o lobby
-    console.log("EMITTING GAME STARTED");
     io.to(game.id).emit('game_started', game.playerWorthy());
     console.log("~~~~~~~Game Started~~~~~~");
     io.emit('lobby_changed');

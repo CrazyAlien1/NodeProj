@@ -10,6 +10,7 @@
   "license": "ISC",
   "dependencies": {
     "axios": "^0.17.1",
-    "socket.io": "^2.0.4"
+    "socket.io": "^2.0.4",
+    "vue2-scrollbar": "0.0.3"
   }
 }

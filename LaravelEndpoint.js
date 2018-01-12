@@ -46,7 +46,6 @@ class LaravelApiEndPoint
 	}
 
 	postSaveGame(game, success, error){
-		console.log("POSTING:::", game.allPlayers);
 		this.axios.put(URI_GAMES, {
                 //falta o auth token!
                 'id' : game.id,
@@ -55,7 +54,6 @@ class LaravelApiEndPoint
                 'winner' : game.winner.ID,
                 'players' : game.allPlayers,
         }).then(resp => {
-        	console.log(resp);
         	success(resp);
         }).catch(resp => {
         	console.log(resp);

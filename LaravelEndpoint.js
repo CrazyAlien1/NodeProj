@@ -19,8 +19,8 @@ class LaravelApiEndPoint
 		});
 	}
 
-	login(ID, success, error){
-		this.axios.get(URI_USERS + "/"+ ID)
+	login(request, success, error){
+		this.axios.get(URI_USERS + "/"+ request.userID, {token : request.token})
 		.then(resp => {
 			success(resp);
 		})

@@ -17,6 +17,10 @@ var app = require('http').createServer(function(req,res){
  }
 });
 
+var jwt = require('json-web-token');
+var nodeSecret = 'Edhsacak2n21dc__oC_XsdCsakasndas';
+
+
 var io = require('socket.io')(app);
 
 const MAXPLAYERS = 4;
@@ -40,7 +44,7 @@ app.listen(8080, function(){
 // Estrutura dados - server
 // ------------------------
 let restRequiredFields = {
-                          authenticate_server: ["userID"],
+                          authenticate_server: ["userID", "token"],
                           create_game : ["gameName", "gameType", "gameMaxPlayers", "rows", "cols"],
                           request_join_game : ["gameId"],
                           play_piece : ["gameId", "pieceIndex"],
@@ -66,7 +70,7 @@ io.on('connection', function (socket) {
     socket.emit('request_authenticate');
 
     socket.on('authenticate_server', function(data)
-    {   //data: {userID : 2, userName: name}
+    {   //data: {userID : 2, token: gibberish}
         if(!validateRest(data, restRequiredFields.authenticate_server))
         {
             return;
@@ -80,7 +84,7 @@ io.on('connection', function (socket) {
             return;
         }
 
-        laravelApi.login(data.userID,
+        laravelApi.login(data,
             (success) => {
                 console.log("***********[LOGGIN SUCCESS]**********");
                 userInfo = success.data.data;
@@ -112,11 +116,12 @@ io.on('connection', function (socket) {
             games.forEach( (game) => {
                 game.removePlayer(player.ID);
                 io.to(game.id).emit('player_disconnected', {'player': player.name, 'game': game});
-                if(game.players.length == 0 || (game.owner.id == player.ID && game.status == 'pending')){
+                if(game.players.length == 0 || (game.owner.ID == player.ID && game.status == 'pending')){
                     gamesList.deleteGame(game.id);
                 }
             });
 
+            io.emit('lobby_changed');
         }
     });
 

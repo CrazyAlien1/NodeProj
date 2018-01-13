@@ -262,7 +262,7 @@ io.on('connection', function (socket) {
 
         if(game !== undefined){
             if(player.ID != game.playerTurn){
-                socket.emit('invalid_play', error);
+                socket.emit('invalid_play', 'Not your Turn!');
                 return;
             }
             console.log(player.name," PLAYING...");

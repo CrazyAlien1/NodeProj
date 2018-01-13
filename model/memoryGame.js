@@ -41,6 +41,7 @@ class MemoryGame
 			//let userInGame = setUpUserForGame(player);
 			if(player.playerType == 'HUMAN'){
 				this.kickBot();
+				player.Points = 0;
 			}
 			this.players.push(player);
 

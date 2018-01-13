@@ -1,0 +1,25 @@
+O QUE SAI:
+Capitulos: 5,6,7
+camada de apresentacao
+service layer
+
+
+Transform-view vs Template-view
+
+1.Transform-view
+->Separa claramente código da visto do lógico
+
+2.Template-view
+
+->Esta no lado do servidor
+->Permite flexibilidade de alteração com código
+
+é uma tag tipo dataTable(jsfPage)
+que é compilado pelo dono da tag que depois uma Class usa a tag para substituir pelas tags html
+para poder apresentar no browser
+
+
+front-controller:
+->Big boss (valida tudo/ todas as paginas passam por ele)
+->Verifica tudo o que for segurança/permissões
+->

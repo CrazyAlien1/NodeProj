@@ -35,9 +35,9 @@ class GameList
 		return this.games.filter(game => game.status == 'active');
 	}
 
-	createGame(game, owner, time)
+	createGame(game, owner, time, bots)
 	{
-		let newGame = new MemoryGame(game, owner, time);
+		let newGame = new MemoryGame(game, owner, time, bots);
 		this.games.set(game.id, newGame);
 		return newGame;
 	}

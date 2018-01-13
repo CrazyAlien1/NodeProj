@@ -3,9 +3,11 @@ const MINPLAYERS = 2;
 const MAXPIECES = 100;
 const MINPIECES = 4;
 
+var Bot = require('./bot.js');
+
 class MemoryGame
 {
-	constructor(laravelGame, owner, timer)
+	constructor(laravelGame, owner, timer, bots)
 	{
 		Object.assign(this, laravelGame); //this = laravelGame;
 		this.board = []; //generate now the board with laravelGame.rows and laravelGame.cols
@@ -23,6 +25,7 @@ class MemoryGame
 		this.callbackTimeOut;
 		this.currentWinner = undefined;
 		this.winner = undefined;
+		this.BOTS = bots;
 	}
 
 	join(player)
@@ -33,11 +36,13 @@ class MemoryGame
 				console.log("Game is FUll", this.players.length);
 				return;
 			}
-			//Create a new instance because a user can be in multiple games
-			//and the points are refered to one game
-			let userInGame = setUpUserForGame(player);
-			console.log("USER JOINED: ", userInGame);
-			this.players.push(userInGame);
+			
+			//NOTA: Rever isto... so fazem join os que nao criaram o jogo
+			//let userInGame = setUpUserForGame(player);
+			if(player.playerType == 'HUMAN'){
+				this.kickBot();
+			}
+			this.players.push(player);
 
 			if(this.players.length == this.maxPlayers)
 			{
@@ -46,6 +51,16 @@ class MemoryGame
 			return true;
 		}
 		return false;
+	}
+
+	kickBot(){
+		for(let i = 0; i < this.players.length; i++){
+			if(this.players[i].ID < 1){ //admin is 1
+				console.log("Kicking bot so ", this.players[i].name," can join");
+				this.removePlayer(this.players[i].ID);
+				return;
+			}
+		}
 	}
 
 	removePlayer(id){
@@ -105,16 +120,18 @@ class MemoryGame
 		this.clearMessages();
 		this.newTurn = true;
 
-		console.log("TOTAL PLAYERs: "+ this.players.length);
 		for(let i = 0; i < this.players.length; i++) {
-			console.log("NEXTPLAYER()---->", this.players[i].ID, " == ", this.playerTurn);
 		    if (this.players[i].ID == this.playerTurn) {
 
 		    	this.startTimer();
 
 		    	let nextIndex =  (i+1) % this.players.length;
 
-		    	console.log("NEXT PLAYER::::"," I: ", i,"   index: ", nextIndex, " Player: ", this.players[nextIndex]);
+		    	if(this.players[nextIndex].playerType == 'BOT'){
+		    		this.isBotTurn = true;
+		    	}else{
+		    		this.isBotTurn = false;
+		    	}
 
 		    	return this.players[nextIndex];
 		    }
@@ -141,6 +158,14 @@ class MemoryGame
 			this.type = 'singleplayer';
 		}
 
+		if(this.BOTS !== undefined){
+			for(let i = 0; i < this.BOTS.length; i++){
+				let newBot = new Bot(-i, this.BOTS[i].name, this.BOTS[i].botType, this.board);
+				this.join(newBot);
+			}			
+		}
+		console.log(this.players);
+
 		this.startTimer();
 		
 
@@ -156,11 +181,19 @@ class MemoryGame
 			let pieceValue = this.finalBoard[index];
 
 			if(this.board[index] !== -1){
+				console.log("PLAYER: ",playerID," The piece was already flipped ->" , index, " BOARD: ", this.board);
 				error('The piece was already flipped');
 				return;
 			}
 
 			this.board[index] = pieceValue;
+			if(this.BOTS !== undefined){
+				for(let i = 0; i < this.players.length; i++){
+					if(this.players[i].playerType == 'BOT'){
+						this.players[i].watchGame(index, pieceValue);
+					}
+				}
+			}
 
 			if(this.piece1 === undefined){
 				this.piece1 = {'value' : pieceValue, 'index' : index};
@@ -184,23 +217,17 @@ class MemoryGame
 						this.startTimer();
 					}
 					this.newTurn = true;
-					success();
-					this.board[this.piece1.index] = -2;
-					this.board[this.piece2.index] = -2;
-					this.piece1 = undefined;
-					this.piece2 = undefined;
+					success();				
+					
 				}else{
 
 					this.playerTurn = this.nextPlayerToPlay().ID;
-					console.log("NEXT PLAYER: ", this.playerTurn);
-					
 					fail();
-
-					this.resetTurn();
 				}
 			}
 		}else{
 			if(playerID !== this.playerTurn){
+				console.log(playerID, " :::Trying to play...");
 				error('Not your turn');
 			}
 		}
@@ -217,8 +244,17 @@ class MemoryGame
 	}
 
 	stopTimer(){
-		console.log("´´´´´´´´´´´´´´STOPPING TIMER´´´´´´´´´´´´´´");
 		clearTimeout(this.timeToPlay);
+	}
+
+	finishTurn(){
+		if(this.piece1 !== undefined && this.piece2 !== undefined){
+			this.board[this.piece1.index] = -2;
+			this.board[this.piece2.index] = -2;
+			this.piece1 = undefined;
+			this.piece2 = undefined;
+		}
+		console.log("Finish Turn", this.board);
 	}
 
 	resetTurn(){
@@ -268,9 +304,7 @@ class MemoryGame
 		}else{
 
 			for (let i = 0; i < this.players.length; i++) {
-				console.log("FOR::", this.players[i], "      ----maxPoints: "+ this.currentMaxPoints);
 				if(this.players[i].Points > this.currentMaxPoints){
-					console.log("UPDATING WINNER:::", this.players[i]);
 					this.currentMaxPoints = this.players[i].Points;
 					this.currentWinner = this.players[i];
 				}
@@ -286,6 +320,8 @@ class MemoryGame
 		this.message = [];
 	}
 }
+module.exports = MemoryGame;
+
 
 MemoryGame.prototype.playerWorthy = function(){
 	var game = Object.assign({}, this); 
@@ -294,7 +330,6 @@ MemoryGame.prototype.playerWorthy = function(){
 	return game;
 }
 
-module.exports = MemoryGame;
 
 function setUpUserForGame(player){
 		let userInGame = Object.assign({}, player);

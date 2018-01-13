@@ -17,10 +17,6 @@ var app = require('http').createServer(function(req,res){
  }
 });
 
-var jwt = require('json-web-token');
-var nodeSecret = 'Edhsacak2n21dc__oC_XsdCsakasndas';
-
-
 var io = require('socket.io')(app);
 
 const MAXPLAYERS = 4;
@@ -44,7 +40,7 @@ app.listen(8080, function(){
 // Estrutura dados - server
 // ------------------------
 let restRequiredFields = {
-                          authenticate_server: ["userID", "token"],
+                          authenticate_server: ["userID"],
                           create_game : ["gameName", "gameType", "gameMaxPlayers", "rows", "cols"],
                           request_join_game : ["gameId"],
                           play_piece : ["gameId", "pieceIndex"],
@@ -110,6 +106,7 @@ io.on('connection', function (socket) {
             return;
         }
         users.removePlayer(player.ID);
+        console.log("<<<<<<<<<<User was removed from Node>>>>>>>>>");
         let games = gamesList.playerGames(player.ID);
         if(games !== undefined){
 
@@ -126,7 +123,7 @@ io.on('connection', function (socket) {
     });
 
     socket.on('create_game', function (data)
-    {   //data {gameName: 'war on pigs', gameType: 'Multiplayer', gameMaxPlayers: 2, rows: 2, cols: 2}
+    {   //data {gameName: 'war on pigs', gameType: 'multiplayer', gameMaxPlayers: 2, rows: 2, cols: 2}
         //create a new game and a room for it!
         //Emit to everyone new game is available
         if(!validateRest(data, restRequiredFields.create_game))
@@ -154,7 +151,7 @@ io.on('connection', function (socket) {
                     //Criar o jogo aqui no servidor Node
 
                     let owner = users.getUserByID(game.created_by.id);
-                    game = gamesList.createGame(game, owner, 30000);
+                    game = gamesList.createGame(game, owner, 30000, data.bots);
                     
                     socket.join(game.id);
 
@@ -259,11 +256,16 @@ io.on('connection', function (socket) {
             return;
         }
 
+
         let player = socketToUser(socket);
         let game = gamesList.gameByID(data.gameId);
 
         if(game !== undefined){
-            console.log("Playing piece");
+            if(player.ID != game.playerTurn){
+                socket.emit('invalid_play', error);
+                return;
+            }
+            console.log(player.name," PLAYING...");
             game.play(player.ID, data.pieceIndex, 
                 (success) => {
                     
@@ -283,12 +285,12 @@ io.on('connection', function (socket) {
                     }else{
 
                         io.to(game.id).emit('game_refresh', game.playerWorthy());
+                        game.finishTurn();
                         if(game.newTurn){
                             setTimeoutPromise(1000).then(
                             () => {
                                 io.to(game.id).emit('game_refresh', game.playerWorthy()); 
-                            }
-                            );
+                            });
                         }
                     }
                 },
@@ -296,11 +298,12 @@ io.on('connection', function (socket) {
 
                     console.log("Failed Play");
                     io.to(game.id).emit('game_switch_turn', game.playerWorthy());
+                    game.resetTurn();
                     setTimeoutPromise(1000).then(
                         () => {
-                            io.to(game.id).emit('game_refresh', game.playerWorthy()); 
-                        }
-                    );
+                            io.to(game.id).emit('game_refresh', game.playerWorthy());
+                        });
+
                 },
                 (error) => {
                     console.log("failed");
@@ -310,8 +313,16 @@ io.on('connection', function (socket) {
                     else{
                         socket.emit('invalid_play', error);
                     }
-                }
-            );
+                });
+            console.log("IS BOTs Turn", game.isBotTurn);
+            if(game.newTurn && game.isBotTurn){
+                setTimeoutPromise(1000).then(
+                    () => {
+                        console.log("BOT PLAYING...");
+                        console.log(game.board);
+                        botPlay(game);
+                    });
+            }
 
         }else{
             console.log("FAILED GAME"+ game);
@@ -455,6 +466,7 @@ io.on('connection', function (socket) {
 
 function closeGame(game){
     game.status = 'terminated';
+    game.finishTurn();
     io.to(game.id).emit('game_ended', game.playerWorthy());
 
     //for(let i = 0; i < game.players.length; i++){
@@ -516,4 +528,77 @@ function nodeStats(){
     console.log("******************************************");
     console.log("* USERS: "+ users.players.size+ "  GAMES:"+ gamesList.games.size+ " *");
     
+}
+
+function botPlay(game) {
+    let bot = game.getPlayer(game.playerTurn);
+
+    if(bot !== undefined){
+        setTimeoutPromise(500).then(
+            () => {
+
+                game.finishTurn();
+                let play1 = bot.playFirstPiece(game.board);
+                console.log("Play1 : ", play1);
+
+                //show 1º play
+                game.play(bot.ID, play1,
+                    () => { //success
+                        //Bot has to play 2 pieces always
+                        io.to(game.id).emit('game_refresh', game.playerWorthy()); 
+                    },
+                    () => { //fail
+                        console.log("Bot failed playing first piece");
+                        //Bot cannot fail playing the first piece
+                    });
+
+                    //Timer for 2º play
+                    setTimeoutPromise(800).then(
+                        () => {
+
+                            let play2 = bot.playSecondPiece(game.board);
+                            console.log("Play2 : ", play2);
+                            game.play(bot.ID, play2,
+                            () => { //success
+                                io.to(game.id).emit('game_refresh', game.playerWorthy());
+                                
+                                let nextPlayer = game.getPlayer(game.playerTurn);
+                                console.log("Next Player ", nextPlayer.name);
+                                if(game.gameEnded){
+                                    closeGame(game);
+                                }else if(nextPlayer.playerType == 'BOT'){
+                                    
+                                    setTimeoutPromise(1000).then(
+                                        () => {
+                                            //show 2º play success
+                                            io.to(game.id).emit('game_refresh', game.playerWorthy());
+                                            botPlay(game);
+                                        });
+                                }
+                            },
+                            () => { //fail
+                                    io.to(game.id).emit('game_switch_turn', game.playerWorthy());
+                                    game.resetTurn();
+                                    setTimeoutPromise(1000).then(
+                                        () => {
+                                            io.to(game.id).emit('game_refresh', game.playerWorthy());
+                                            
+                                            let nextPlayer = game.getPlayer(game.playerTurn);
+                                            console.log("Next Player ", nextPlayer.name);
+                                            if(nextPlayer.playerType == 'BOT'){
+
+                                                console.log("Still a bot to PLAY!")
+                                    
+                                                setTimeoutPromise(1000).then(
+                                                    () => {
+                                                        //show 2º play success
+                                                        io.to(game.id).emit('game_refresh', game.playerWorthy());
+                                                        botPlay(game);
+                                                    });
+                                            }
+                                        });
+                                });
+                    });
+            });
+    }
 }

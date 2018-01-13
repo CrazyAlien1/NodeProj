@@ -46,13 +46,20 @@ class LaravelApiEndPoint
 	}
 
 	postSaveGame(game, success, error){
+		let allPlayers = [];
+		for(let i = 0; i < game.players.length; i++){
+			if(game.players[i].playerType == 'HUMAN'){
+				allPlayers.push(game.players[i].ID);			
+			}
+		}
+		console.log("SAVING", allPlayers, " Winner: ", game.winner.name);
 		this.axios.put(URI_GAMES, {
                 //falta o auth token!
                 'id' : game.id,
                 'status' : game.status,
                 'type' : game.type,
                 'winner' : game.winner.ID,
-                'players' : game.allPlayers,
+                'players' : allPlayers,
         }).then(resp => {
         	success(resp);
         }).catch(resp => {

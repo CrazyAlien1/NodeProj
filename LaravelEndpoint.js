@@ -20,7 +20,12 @@ class LaravelApiEndPoint
 	}
 
 	login(request, success, error){
-		this.axios.get(URI_USERS + "/"+ request.userID)
+		this.axios.get(URI_USERS + "/"+ request.userID,
+			headers: {
+            'Accept' : 'application/json',
+            'Content-Type' : 'application/json',
+            'Authorization': 'Bearer ' + request.token,
+        	},)
 		.then(resp => {
 			success(resp);
 		})

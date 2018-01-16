@@ -40,7 +40,7 @@ app.listen(8080, function(){
 // Estrutura dados - server
 // ------------------------
 let restRequiredFields = {
-                          authenticate_server: ["userID"],
+                          authenticate_server: ["userID", "token"],
                           create_game : ["gameName", "gameType", "gameMaxPlayers", "rows", "cols"],
                           request_join_game : ["gameId"],
                           play_piece : ["gameId", "pieceIndex"],

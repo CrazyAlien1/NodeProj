@@ -3,7 +3,7 @@ var Player = require('./player.js');
 class Bot {
 
 	constructor(ID, name, botLevel, board){
-		Object.assign(this, new Player(ID, undefined, name, 'BOT'));
+		Object.assign(this, new Player(ID, undefined, undefined, name, 'BOT'));
 		this.botLevel = botLevel;
 		this.botMemory = board.slice(); //deep Copy of the array
 		this.nextCombo = undefined;

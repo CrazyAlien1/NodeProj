@@ -5,7 +5,7 @@
 //CORS TRIALS
 var app = require('http').createServer(function(req,res){
  // Set CORS headers
- res.setHeader('Access-Control-Allow-Origin', '127.0.0.1:8000');
+ res.setHeader('Access-Control-Allow-Origin', 'dadproj.dad');
  res.setHeader('Access-Control-Request-Method', '*');
  res.setHeader('Access-Control-Allow-Methods', 'OPTIONS, GET, POST');
  res.setHeader('Access-Control-Allow-Credentials', true);
@@ -55,7 +55,7 @@ let restRequiredFields = {
 
 let gamesList = new GameList();
 let users = new PlayerList();
-let laravelApi = new LaravelApiEndPoint("127.0.0.1", 8000);
+let laravelApi = new LaravelApiEndPoint("dadproj.dad", 80);
 const setTimeoutPromise = util.promisify(setTimeout);
 
 //synchNodeServerWithLaravel();
@@ -80,12 +80,18 @@ io.on('connection', function (socket) {
             return;
         }
 
+        console.log('USER ID: ' + data.userID);
+
         laravelApi.login(data,
             (success) => {
                 console.log("***********[LOGGIN SUCCESS]**********");
+                console.log(success.data.data);
+                //console.log(success.data.data);
                 userInfo = success.data.data;
-                var newPlayer = new Player(userInfo.id, socket.id, userInfo.nickname);
+                var newPlayer = new Player(userInfo.id, socket.id, data.token, userInfo.nickname);
                 users.addPlayer(data.userID, newPlayer);
+
+                console.log(users);
                 socket.emit('success_join_server', success.data.data);
                 socket.emit('lobby_updated', gamesList.getPendingGames());
                 console.log("USERS IN NODE: "+ users.playerList.size);
@@ -149,8 +155,14 @@ io.on('connection', function (socket) {
                     game.maxPlayers = data.gameMaxPlayers;
                     //Laravel recebeu com sucesso o meu pedido de novo jogo
                     //Criar o jogo aqui no servidor Node
+                    //
+                    
+                    console.log(game);
 
                     let owner = users.getUserByID(game.created_by.id);
+
+                    console.log('owner: ' + owner);
+
                     game = gamesList.createGame(game, owner, 30000, data.bots);
                     
                     socket.join(game.id);
@@ -260,6 +272,8 @@ io.on('connection', function (socket) {
         let player = socketToUser(socket);
         let game = gamesList.gameByID(data.gameId);
 
+        console.log(game.owner, player);
+
         if(game !== undefined){
             if(player.ID != game.playerTurn){
                 socket.emit('invalid_play', 'Not your Turn!');
@@ -273,6 +287,8 @@ io.on('connection', function (socket) {
                     if(game.gameEnded){
 
                         closeGame(game);
+
+                        game.token = player.token;
 
                         laravelApi.postSaveGame(game,
                             (success) => {

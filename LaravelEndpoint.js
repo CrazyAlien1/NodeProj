@@ -6,11 +6,11 @@ class LaravelApiEndPoint
 {
 	constructor(url, port){
 		this.url = url;
-		this.port = port;
+		//this.port = port;
 		this.axios = axios.create({
 		  proxy: {
 		    host: this.url,
-		    port: this.port,
+		    //port: this.port,
 		    /*auth: {
 		      username: 'mikeymike',
 		      password: 'rapunz3l'
@@ -20,29 +20,34 @@ class LaravelApiEndPoint
 	}
 
 	login(request, success, error){
-		this.axios.get(URI_USERS + "/"+ request.userID,
-			headers: {
-            'Accept' : 'application/json',
-            'Content-Type' : 'application/json',
-            'Authorization': 'Bearer ' + request.token,
-        	},)
+		console.log(request);
+		axios({method: 'get', url: "http://dadproj.dad/api/users" + "/"+ request.userID, headers: {
+	            'Accept' : 'application/json',
+	            'Content-Type' : 'application/json',
+	            'Authorization': request.token,
+        	}})
 		.then(resp => {
 			success(resp);
+			console.log(resp);
 		})
 		.catch(resp => {
 			error(resp);
+			console.log(resp);
 		});
 	}
 
 	postCreateGame(gameRequest, success, error){
-		this.axios.post(URI_GAMES, {
-                //falta o auth token!
-                'userID' : gameRequest.player.ID,
+		axios({method: 'post', url: "http://dadproj.dad/api/games", headers: {
+	            'Accept' : 'application/json',
+	            'Content-Type' : 'application/json',
+	            'Authorization': gameRequest.player.token,
+        	}, data: {
+        		'userID' : gameRequest.player.ID,
                 'type' : gameRequest.game.gameType,
                 'name' : gameRequest.game.gameName,
                 'rows' : gameRequest.game.rows,
                 'cols' : gameRequest.game.cols,
-        }).then(resp => {
+        	}}).then(resp => {
         	success(resp);
         }).catch(resp => {
         	console.log(resp);
@@ -58,14 +63,17 @@ class LaravelApiEndPoint
 			}
 		}
 		console.log("SAVING", allPlayers, " Winner: ", game.winner.name);
-		this.axios.put(URI_GAMES, {
-                //falta o auth token!
-                'id' : game.id,
+		axios({method: 'put', url: "http://dadproj.dad/api/games", headers: {
+	            'Accept' : 'application/json',
+	            'Content-Type' : 'application/json',
+	            'Authorization': game.token,
+        	}, data: {
+        		'id' : game.id,
                 'status' : game.status,
                 'type' : game.type,
                 'winner' : game.winner.ID,
                 'players' : allPlayers,
-        }).then(resp => {
+        	}}).then(resp => {
         	success(resp);
         }).catch(resp => {
         	console.log(resp);

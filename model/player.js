@@ -1,9 +1,10 @@
 class Player
 {
-	constructor(ID, socketID, name, playerType)
+	constructor(ID, socketID, token,name, playerType)
 	{
 		this.ID = ID;
 		this.socketID = socketID;
+		this.token = token;
 		this.name = name;
 		this.playerType = (playerType !== undefined) ? 'BOT' : 'HUMAN';
 	}

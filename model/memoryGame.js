@@ -144,6 +144,8 @@ class MemoryGame
 		this.status = 'active';
 		this.newTurn = true;
 		this.callbackTimeOut = callbackTime;
+		this.currentWinner = this.owner;
+		this.currentMaxPoints = 0;
 		//generate the board!
 		let size = this.cols * this.rows;
 		for (var i = 0; i < size; i++) {
@@ -295,22 +297,13 @@ class MemoryGame
 	}
 
 	updateCurrentWinner(player){
-		if(player !== undefined && player.playerType == 'HUMAN'){
-			
-			if(this.currentMaxPoints == undefined && player !== undefined){
-				this.currentMaxPoints = player.Points;
-				this.currentWinner = player; 
-			}else{
-
-				for (let i = 0; i < this.players.length; i++) {
-					if(this.players[i].playerType == 'HUMAN'){
-						if(this.players[i].Points > this.currentMaxPoints){
-							this.currentMaxPoints = this.players[i].Points;
-							this.currentWinner = this.players[i];
-						}
-					}
+		for (let i = 0; i < this.players.length; i++) {
+			if(this.players[i].playerType == 'HUMAN'){
+				if(this.players[i].Points > this.currentMaxPoints){
+					this.currentMaxPoints = this.players[i].Points;
+					this.currentWinner = this.players[i];
 				}
-			}		
+			}	
 		}
 	}
 
